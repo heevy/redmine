@@ -319,6 +319,7 @@ module Redmine
           else
             cmd_args << "show" << "--no-color" << identifier_from
           end
+          cmd_args << "-U30"
           cmd_args << "--" <<  scm_iconv(@path_encoding, 'UTF-8', path) unless path.empty?
           diff = []
           git_cmd(cmd_args) do |io|
