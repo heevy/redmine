@@ -24,9 +24,16 @@ module Redmine
 
         # Git executable name
         GIT_BIN = Redmine::Configuration['scm_git_command'] || "git"
+        @@CACHE = ThreadSafeLru::LruCache.new 50
+
 
         class GitBranch < Branch 
           attr_accessor :is_default
+        end
+
+        class RevisionCacheEntry
+          attr_accessor :subtree_revision, :entries
+
         end
 
         class << self
@@ -132,6 +139,37 @@ module Redmine
         end
 
         def entries(path=nil, identifier=nil, options={})
+            path ||= ''
+            subtree_revision = lastrev(path, identifier)
+            key=url+identifier+path
+            res, subtree_revision = load_and_get_entries_from_cache(identifier, key, options, path, subtree_revision)
+
+            if(res.subtree_revision!=subtree_revision)
+              @@CACHE.drop(key)
+              res, subtree_revision = load_and_get_entries_from_cache(identifier, key, options, path, subtree_revision)
+            end
+            return res.entries
+        end
+
+
+        def load_and_get_entries_from_cache(identifier, key, options, path, subtree_revision)
+          res = @@CACHE.get(key) { |key|
+            cache_entry = RevisionCacheEntry.new
+            while true
+              cache_entry.entries = _entries(path, identifier, options)
+              cache_entry.subtree_revision=subtree_revision
+              current_subtree_revision=lastrev(path, identifier)
+              if (subtree_revision==current_subtree_revision)
+                break
+              end
+              subtree_revision=current_subtree_revision
+            end
+            cache_entry
+          }
+          return res, subtree_revision
+        end
+
+        def _entries(path=nil, identifier=nil, options={})
           path ||= ''
           p = scm_iconv(@path_encoding, 'UTF-8', path)
           entries = Entries.new
@@ -157,7 +195,7 @@ module Redmine
                  :kind => (type == "tree") ? 'dir' : 'file',
                  :size => (type == "tree") ? nil : size,
                  :lastrev => options[:report_last_commit] ?
-                                 lastrev(full_path, identifier) : Revision.new
+                     lastrev(full_path, identifier) : Revision.new
                 }) unless entries.detect{|entry| entry.name == name}
               end
             end
