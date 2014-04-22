@@ -188,6 +188,10 @@ module Redmine
           self.class.shell_quote(str)
         end
 
+        def branch_for_commit(revision)
+          return nil
+        end
+
       private
         def retrieve_root_url
           info = self.info

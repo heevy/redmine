@@ -419,6 +419,20 @@ module Redmine
           nil
         end
 
+        def branch_for_commit(revision)
+          cmd_args = %w|branch --contains |
+          cmd_args << revision
+          lines = []
+          git_cmd(cmd_args) { |io| lines = io.readlines }
+          begin
+            branch = lines[0]
+            #remove active branch identification
+            branch = branch.sub("* ","")
+            branch = branch.sub("  ","")
+            return branch
+          end
+        end
+
         class Revision < Redmine::Scm::Adapters::Revision
           # Returns the readable identifier
           def format_identifier

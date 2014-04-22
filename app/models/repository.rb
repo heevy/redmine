@@ -405,6 +405,10 @@ class Repository < ActiveRecord::Base
     new_record? && project && Repository.where(:project_id => project.id).empty?
   end
 
+  def branch_for_commit(revision)
+    scm.branch_for_commit(revision)
+  end
+
   protected
 
   def check_default
